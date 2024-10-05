@@ -39,7 +39,7 @@ namespace ChatApplication
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Start server Hata: " + ex.Message);
+                MessageBox.Show("Error (Start server): " + ex.Message);
             }
         }
 
@@ -63,7 +63,7 @@ namespace ChatApplication
                     {
                         Invoke((MethodInvoker)delegate
                         {
-                            AddToOldMessages("Ýstemci : " + completeMessage.ToString());
+                            AddToOldMessages("Client : " + completeMessage);
 
                         });
                         completeMessage.Clear();
@@ -72,7 +72,7 @@ namespace ChatApplication
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Hata (Mesaj alýrken): " + ex.Message);
+                MessageBox.Show("Error (Receive Message): " + ex.Message);
             }
         }
 
@@ -84,12 +84,12 @@ namespace ChatApplication
                 string message = txtMessage.Text;
                 byte[] data = Encoding.ASCII.GetBytes(message);
                 ns.Write(data, 0, data.Length);
-                AddToOldMessages("Sunucu : " + message);
+                AddToOldMessages("Server : " + message);
                 txtMessage.Clear();
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Hata (Mesaj gönderirken): " + ex.Message);
+                MessageBox.Show("Error (Send Message): " + ex.Message);
             }
         }
 
@@ -118,12 +118,12 @@ namespace ChatApplication
                     ns.Write(fileData, 0, fileData.Length);
                     ns.Flush();
 
-                    MessageBox.Show("Dosya gönderildi.");
+                    MessageBox.Show("File send.");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Hata (Dosya gönderirken): " + ex.Message);
+                MessageBox.Show("Error (Send file): " + ex.Message);
             }
         }
 
@@ -141,6 +141,7 @@ namespace ChatApplication
             Thread serverThread = new Thread(() => StartServer(ip, port));
             serverThread.IsBackground = true;
             serverThread.Start();
+            MessageBox.Show("Server started.");
 
         }
     }
