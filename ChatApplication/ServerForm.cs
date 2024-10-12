@@ -1,90 +1,39 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Text;
-
+using BusinessLogic;
+using ChatApplication.Domain;
+using Message = ChatApplication.Domain.Message;
 
 namespace ChatApplication
 {
     public partial class ServerForm : Form
     {
-        private NetworkStream ns;
-        private TcpClient client;
+        private ServerService _serverService;
+        private List<MessageService> _messageServices;
+        private List<NetworkStream> _clientStreams;
+
         public ServerForm()
         {
             InitializeComponent();
-            btnSendFile.Enabled = false;
-            btnSendMessage.Enabled = false;
-        }
-
-        private void ServerForm_Load(object sender, EventArgs e)
-        {
-            
-        }
-
-        private void StartServer(string ip,int port)
-        {
-            try
-            {
-                TcpListener server = new TcpListener(IPAddress.Parse(ip), port);
-                server.Start();
-
-                client = server.AcceptTcpClient();
-                ns = client.GetStream();
-                btnSendMessage.Enabled = true;
-
-                Thread receiveThread = new Thread(ReceiveMessages);
-                receiveThread.IsBackground = true;
-                receiveThread.Start();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error (Start server): " + ex.Message);
-            }
-        }
-
-        private void ReceiveMessages()
-        {
-            try
-            {
-                byte[] buffer = new byte[1024];
-                int bytesRead;
-                StringBuilder completeMessage = new StringBuilder();
-
-                while ((bytesRead = ns.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    string receivedMessage = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                    completeMessage.Append(receivedMessage);
-                    if (receivedMessage.StartsWith("File"))
-                    {
-                        btnSendFile.Enabled = true;
-                    }
-                    else
-                    {
-                        Invoke((MethodInvoker)delegate
-                        {
-                            AddToOldMessages("Client : " + completeMessage);
-
-                        });
-                        completeMessage.Clear();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error (Receive Message): " + ex.Message);
-            }
+            _serverService = new ServerService();
+            _messageServices = new List<MessageService>();
+            _clientStreams = new List<NetworkStream>();
         }
 
         private void btnSendMessage_Click(object sender, EventArgs e)
         {
             try
             {
-                if (String.IsNullOrEmpty(txtMessage.Text)) return;
-                string message = txtMessage.Text;
-                byte[] data = Encoding.ASCII.GetBytes(message);
-                ns.Write(data, 0, data.Length);
-                AddToOldMessages("Server : " + message);
+                if (string.IsNullOrEmpty(txtMessage.Text)) return;
+                Message message = new Message(txtMessage.Text);
+
+                foreach (var messageService in _messageServices)
+                {
+                    messageService.SendMessage(message);
+                }
+
+                AddToOldMessages("Server: " + message);
                 txtMessage.Clear();
             }
             catch (Exception ex)
@@ -95,8 +44,7 @@ namespace ChatApplication
 
         private void ServerForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            ns?.Close();
-            client?.Close();
+            _serverService.StopServer();
         }
 
         private void btnSendFile_Click(object sender, EventArgs e)
@@ -111,22 +59,25 @@ namespace ChatApplication
                     long fileSize = fileInfo.Length;
 
                     byte[] fileNameBytes = Encoding.ASCII.GetBytes("FILE:" + Path.GetFileName(fileName) + "|SIZE:" + fileSize.ToString() + "|");
-                    ns.Write(fileNameBytes, 0, fileNameBytes.Length);
-                    ns.Flush();
 
-                    byte[] fileData = File.ReadAllBytes(fileName);
-                    ns.Write(fileData, 0, fileData.Length);
-                    ns.Flush();
+                    foreach (var stream in _clientStreams)
+                    {
+                        stream.Write(fileNameBytes, 0, fileNameBytes.Length);
+                        stream.Flush();
 
-                    MessageBox.Show("File send.");
+                        byte[] fileData = File.ReadAllBytes(fileName);
+                        stream.Write(fileData, 0, fileData.Length);
+                        stream.Flush();
+                    }
+
+                    MessageBox.Show("File sent.");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error (Send file): " + ex.Message);
+                MessageBox.Show("Error (Send File): " + ex.Message);
             }
         }
-
 
         private void AddToOldMessages(string message)
         {
@@ -138,11 +89,50 @@ namespace ChatApplication
             string[] strings = txtIpAndPort.Text.Split(',');
             string ip = strings[0];
             int port = int.Parse(strings[1]);
-            Thread serverThread = new Thread(() => StartServer(ip, port));
+
+            Thread serverThread = new Thread(() =>
+            {
+                _serverService.StartServer(ip, port);
+
+                while (true)
+                {
+                    var client = _serverService.AcceptClient();
+                    var networkStream = client.GetStream();
+
+                    _clientStreams.Add(networkStream);
+                    var messageService = new MessageService(networkStream);
+                    _messageServices.Add(messageService);
+
+                    Thread receiveThread = new Thread(() =>
+                    {
+                        while (true)
+                        {
+                            try
+                            {
+                                Message receivedMessage = messageService.ReceiveMessage();
+                                Invoke((MethodInvoker)delegate
+                                {
+                                    AddToOldMessages("Client: " + receivedMessage);
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                Invoke((MethodInvoker)delegate
+                                {
+                                    MessageBox.Show("Error (Receive Message): " + ex.Message);
+                                });
+                                break;
+                            }
+                        }
+                    });
+                    receiveThread.IsBackground = true;
+                    receiveThread.Start();
+                }
+            });
+
             serverThread.IsBackground = true;
             serverThread.Start();
             MessageBox.Show("Server started.");
-
         }
     }
 }

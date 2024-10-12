@@ -116,7 +116,6 @@
             Name = "ServerForm";
             Text = "ServerForm";
             FormClosing += ServerForm_FormClosing;
-            Load += ServerForm_Load;
             ResumeLayout(false);
             PerformLayout();
         }

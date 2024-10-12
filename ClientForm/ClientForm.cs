@@ -1,77 +1,45 @@
+using System;
 using System.Net.Sockets;
 using System.Text;
+using BusinessLogic;
+using ChatApplication.Domain;
+using Message = ChatApplication.Domain.Message;
 
 namespace ClientForm
 {
     public partial class ClientForm : Form
     {
-        private NetworkStream stream;
-        private TcpClient client;
+        private ClientService _clientService;
+        private MessageService _messageService;
         private string filePath;
 
         public ClientForm()
         {
             InitializeComponent();
             btnSendMessage.Enabled = false;
-        }
-
-        private void Form1_Load(object sender, EventArgs e)
-        {
-            
-        }
-
-        private void ReceiveMessageThread()
-        {
-            Thread receiveThread = new Thread(ReceiveMessages);
-            receiveThread.IsBackground = true;
-            receiveThread.Start();
-        }
-
-        private void StartClient(string ip,int port)
-        {
-            client = new TcpClient(ip, port);
-            stream = client.GetStream();
-            MessageBox.Show("Sunucuya baðlanýldý");
-            btnSendMessage.Enabled = true;
-            ReceiveMessageThread();
+            _clientService = new ClientService();
         }
 
         private void ReceiveMessages()
         {
+            _messageService = new MessageService(_clientService.NetworkStream);
+
             try
             {
-                byte[] data = new byte[1024];
                 while (true)
                 {
-                    int recv = stream.Read(data, 0, data.Length);
-                    if (recv == 0) break;
-
-                    string message = Encoding.ASCII.GetString(data, 0, recv);
-
-                    if (message.StartsWith("FILE:"))
+                    Message receivedMessage = _messageService.ReceiveMessage();
+                    Invoke((MethodInvoker)delegate
                     {
-                        string[] fileInfo = message.Split('|');
-                        string fileName = fileInfo[0].Substring(5);
-                        long fileSize = long.Parse(fileInfo[1].Substring(5));
-
-                        ReceiveFile(fileName, fileSize);
-                    }
-                    else
-                    {
-                        Invoke((MethodInvoker)delegate
-                        {
-                            AddToTextBox("Sunucu : " + message);
-                        });
-                    }
+                        AddToTextBox(receivedMessage.ToString());
+                    });
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Hata (Mesaj alýrken): " + ex.Message);
+                MessageBox.Show("Error (Receive Message): " + ex.Message);
             }
         }
-
-
 
         private void ReceiveFile(string fileName, long fileSize)
         {
@@ -85,7 +53,7 @@ namespace ClientForm
                     long totalBytesReceived = 0;
                     while (totalBytesReceived < fileSize)
                     {
-                        int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                        int bytesRead = _clientService.NetworkStream.Read(buffer, 0, buffer.Length);
                         if (bytesRead > 0)
                         {
                             fs.Write(buffer, 0, bytesRead);
@@ -111,19 +79,16 @@ namespace ClientForm
         private void btnSendMessage_Click(object sender, EventArgs e)
         {
             if (String.IsNullOrEmpty(txtMessage.Text)) return;
-            string message = txtMessage.Text;
-            byte[] data = Encoding.ASCII.GetBytes(message);
-            stream.Write(data, 0, data.Length);
+            Message message = new Message(txtMessage.Text);
+            _messageService.SendMessage(message);
             AddToTextBox("Ýstemci : " + message);
             txtMessage.Clear();
         }
 
         private void ClientForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            stream?.Close();
-            client?.Close();
+            _clientService.StopClient();
         }
-
 
         private void btnSelectTargetLoc_Click(object sender, EventArgs e)
         {
@@ -137,7 +102,7 @@ namespace ClientForm
             if (!String.IsNullOrEmpty(txtFilePath.Text))
             {
                 byte[] data = Encoding.ASCII.GetBytes("File location selected");
-                stream.Write(data, 0, data.Length);
+                _clientService.NetworkStream.Write(data, 0, data.Length);
             }
 
         }
@@ -149,12 +114,36 @@ namespace ClientForm
 
         private void btnConnect_Click(object sender, EventArgs e)
         {
-            if(!String.IsNullOrEmpty(txtIpAndPort.Text))
+            if (!String.IsNullOrEmpty(txtIpAndPort.Text))
             {
                 var strings = txtIpAndPort.Text.Split(',');
                 string ip = strings[0];
                 int port = int.Parse(strings[1]);
-                StartClient(ip, port);
+
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        _clientService.StartClient(ip, port);
+
+                        Invoke((MethodInvoker)delegate
+                        {
+                            if (_clientService.Client.Connected)
+                            {
+                                btnSendMessage.Enabled = true;
+                                Task.Run(() => ReceiveMessages());
+                                MessageBox.Show("Sunucuya baðlanýldý.");
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Invoke((MethodInvoker)delegate
+                        {
+                            MessageBox.Show("Baðlantý hatasý: " + ex.Message);
+                        });
+                    }
+                });
             }
         }
     }
