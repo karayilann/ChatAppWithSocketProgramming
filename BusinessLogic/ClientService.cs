@@ -40,9 +40,17 @@ namespace BusinessLogic
 
         public void StopClient()
         {
-            stream?.Close();
-            client?.Close();
+            try
+            {
+                stream?.Close();
+                client?.Close();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error (StopClient): " + ex.Message);
+            }
         }
+
 
     }
 }

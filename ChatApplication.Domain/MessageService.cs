@@ -26,11 +26,24 @@ namespace ChatApplication.Domain
 
         public Message ReceiveMessage()
         {
-            byte [] data = new byte[1024];
-            int receivedBytes = _networkStream.Read(data, 0, data.Length);
-            string messageContent = Encoding.ASCII.GetString(data, 0, receivedBytes);
-            return new Message(messageContent);
+            byte[] data = new byte[1024];
+            try
+            {
+                int receivedBytes = _networkStream.Read(data, 0, data.Length);
+                if (receivedBytes == 0)
+                {
+                    return null;
+                }
+
+                string messageContent = Encoding.ASCII.GetString(data, 0, receivedBytes);
+                return new Message(messageContent);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Hata (ReceiveMessage): " + ex.Message);
+            }
         }
+
 
     }
 }

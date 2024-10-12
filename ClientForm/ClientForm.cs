@@ -28,11 +28,34 @@ namespace ClientForm
             {
                 while (true)
                 {
-                    Message receivedMessage = _messageService.ReceiveMessage();
-                    Invoke((MethodInvoker)delegate
+                    try
                     {
-                        AddToTextBox(receivedMessage.ToString());
-                    });
+                        Message receivedMessage = _messageService.ReceiveMessage();
+
+                        if (receivedMessage == null)
+                        {
+                            Invoke((MethodInvoker)delegate
+                            {
+                                MessageBox.Show("Connection terminated");
+                                _clientService.StopClient();
+                            });
+                            break;
+                        }
+
+                        Invoke((MethodInvoker)delegate
+                        {
+                            AddToTextBox(receivedMessage.ToString());
+                        });
+                    }
+                    catch (IOException)
+                    {
+                        Invoke((MethodInvoker)delegate
+                        {
+                            MessageBox.Show("Connection terminated");
+                            _clientService.StopClient();
+                        });
+                        break;
+                    }
                 }
             }
             catch (Exception ex)

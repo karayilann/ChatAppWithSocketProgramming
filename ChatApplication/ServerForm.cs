@@ -110,6 +110,18 @@ namespace ChatApplication
                             try
                             {
                                 Message receivedMessage = messageService.ReceiveMessage();
+
+                                if (receivedMessage == null)
+                                {
+                                    Invoke((MethodInvoker)delegate
+                                    {
+                                        MessageBox.Show("A client connection has been terminated.");
+                                        _clientStreams.Remove(networkStream);
+                                        _messageServices.Remove(messageService);
+                                    });
+                                    break;
+                                }
+
                                 Invoke((MethodInvoker)delegate
                                 {
                                     AddToOldMessages("Client: " + receivedMessage);
@@ -127,6 +139,7 @@ namespace ChatApplication
                     });
                     receiveThread.IsBackground = true;
                     receiveThread.Start();
+
                 }
             });
 
