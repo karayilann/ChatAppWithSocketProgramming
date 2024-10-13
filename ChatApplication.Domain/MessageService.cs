@@ -16,12 +16,12 @@ namespace ChatApplication.Domain
             _networkStream = networkStream;
         }
 
+        //Fix the issue where messages sent from the client only appear on the server
         public void SendMessage(Message message)
         {
             string messageContent = message.ToString();
             byte[] data = Encoding.ASCII.GetBytes(messageContent);
             _networkStream.Write(data, 0, data.Length);
-
         }
 
         public Message ReceiveMessage()
@@ -36,6 +36,13 @@ namespace ChatApplication.Domain
                 }
 
                 string messageContent = Encoding.ASCII.GetString(data, 0, receivedBytes);
+
+
+                // Add to check file
+                //if (messageContent.StartsWith("FILE:"))
+                //{
+                //    return new Message(fileName, fileSize);
+                //}
                 return new Message(messageContent);
             }
             catch (Exception ex)

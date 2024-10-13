@@ -42,9 +42,18 @@ namespace ClientForm
                             break;
                         }
 
+                        if (receivedMessage.Content.StartsWith("FILE:"))
+                        {
+                            string[] fileInfo = receivedMessage.Content.Split('|');
+                            string fileName = fileInfo[0].Split(':')[1];
+                            long fileSize = long.Parse(fileInfo[1].Split(':')[1]);
+                            ReceiveFile(fileName,fileSize);
+                            continue;
+                        }
+
                         Invoke((MethodInvoker)delegate
                         {
-                            AddToTextBox(receivedMessage.ToString());
+                            AddToTextBox("Sunucu : " + receivedMessage.ToString());
                         });
                     }
                     catch (IOException)
@@ -86,7 +95,7 @@ namespace ClientForm
 
                     Invoke((MethodInvoker)delegate
                     {
-                        MessageBox.Show("Dosya baþarýyla alýndý ve kaydedildi: " + fullFilePath);
+                        MessageBox.Show("The file was successfully imported and saved: " + fullFilePath);
                     });
                 }
             }
@@ -94,7 +103,7 @@ namespace ClientForm
             {
                 this.Invoke((MethodInvoker)delegate
                 {
-                    MessageBox.Show("Hata (Dosya alýrken): " + ex.Message);
+                    MessageBox.Show("Error (Receiving file): " + ex.Message);
                 });
             }
         }
@@ -104,7 +113,7 @@ namespace ClientForm
             if (String.IsNullOrEmpty(txtMessage.Text)) return;
             Message message = new Message(txtMessage.Text);
             _messageService.SendMessage(message);
-            AddToTextBox("Ýstemci : " + message);
+            AddToTextBox("Client : " + message);
             txtMessage.Clear();
         }
 
@@ -127,9 +136,9 @@ namespace ClientForm
                 byte[] data = Encoding.ASCII.GetBytes("File location selected");
                 _clientService.NetworkStream.Write(data, 0, data.Length);
             }
-
         }
 
+        // Write utils scripts and add this method
         private void AddToTextBox(string message)
         {
             rTxtBoxOldMessages.Text += message + Environment.NewLine;
@@ -155,7 +164,9 @@ namespace ClientForm
                             {
                                 btnSendMessage.Enabled = true;
                                 Task.Run(() => ReceiveMessages());
-                                MessageBox.Show("Sunucuya baðlanýldý.");
+                                MessageBox.Show("Connected to server."); // Type tool to prevent the program from continuing.
+                                txtIpAndPort.Clear();
+                                btnConnect.Enabled = false;
                             }
                         });
                     }
@@ -163,7 +174,7 @@ namespace ClientForm
                     {
                         Invoke((MethodInvoker)delegate
                         {
-                            MessageBox.Show("Baðlantý hatasý: " + ex.Message);
+                            MessageBox.Show("Connection Error: " + ex.Message);
                         });
                     }
                 });

@@ -1,6 +1,9 @@
-using System.Net;
+using System;
+using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
+using System.Windows.Forms;
 using BusinessLogic;
 using ChatApplication.Domain;
 using Message = ChatApplication.Domain.Message;
@@ -12,13 +15,17 @@ namespace ChatApplication
         private ServerService _serverService;
         private List<MessageService> _messageServices;
         private List<NetworkStream> _clientStreams;
+        private FileTransfer _fileTransfer;
+        private readonly object _lockObj = new object();
 
         public ServerForm()
         {
+            // Add dependency injection
             InitializeComponent();
             _serverService = new ServerService();
             _messageServices = new List<MessageService>();
             _clientStreams = new List<NetworkStream>();
+            _fileTransfer = new FileTransfer(_clientStreams);
         }
 
         private void btnSendMessage_Click(object sender, EventArgs e)
@@ -28,9 +35,12 @@ namespace ChatApplication
                 if (string.IsNullOrEmpty(txtMessage.Text)) return;
                 Message message = new Message(txtMessage.Text);
 
-                foreach (var messageService in _messageServices)
+                lock (_lockObj)
                 {
-                    messageService.SendMessage(message);
+                    foreach (var messageService in _messageServices)
+                    {
+                        messageService.SendMessage(message);
+                    }
                 }
 
                 AddToOldMessages("Server: " + message);
@@ -49,33 +59,11 @@ namespace ChatApplication
 
         private void btnSendFile_Click(object sender, EventArgs e)
         {
-            try
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
-                OpenFileDialog ofd = new OpenFileDialog();
-                if (ofd.ShowDialog() == DialogResult.OK)
-                {
-                    string fileName = ofd.FileName;
-                    FileInfo fileInfo = new FileInfo(fileName);
-                    long fileSize = fileInfo.Length;
-
-                    byte[] fileNameBytes = Encoding.ASCII.GetBytes("FILE:" + Path.GetFileName(fileName) + "|SIZE:" + fileSize.ToString() + "|");
-
-                    foreach (var stream in _clientStreams)
-                    {
-                        stream.Write(fileNameBytes, 0, fileNameBytes.Length);
-                        stream.Flush();
-
-                        byte[] fileData = File.ReadAllBytes(fileName);
-                        stream.Write(fileData, 0, fileData.Length);
-                        stream.Flush();
-                    }
-
-                    MessageBox.Show("File sent.");
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error (Send File): " + ex.Message);
+                string fileName = openFileDialog.FileName;
+                _fileTransfer.SendFileToAll(fileName);
             }
         }
 
@@ -100,6 +88,7 @@ namespace ChatApplication
                     var networkStream = client.GetStream();
 
                     _clientStreams.Add(networkStream);
+
                     var messageService = new MessageService(networkStream);
                     _messageServices.Add(messageService);
 
@@ -139,7 +128,6 @@ namespace ChatApplication
                     });
                     receiveThread.IsBackground = true;
                     receiveThread.Start();
-
                 }
             });
 
@@ -147,5 +135,6 @@ namespace ChatApplication
             serverThread.Start();
             MessageBox.Show("Server started.");
         }
+
     }
 }

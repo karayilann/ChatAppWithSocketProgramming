@@ -13,9 +13,16 @@
             Timestamp = DateTime.Now;
         }
 
+        // This will edit for receiving file
+        public Message(string fileName, long fileSize)
+        {
+            Content = $"FILE: {fileName}|SIZE: {fileSize}";
+            Timestamp = DateTime.Now;
+        }
+
         public override string ToString()
         {
-            return $"[{Timestamp}] {Content}";
+            return $"{Content}";
             //return $"[{Timestamp}] {Sender}: {Content}";
         }
     }
