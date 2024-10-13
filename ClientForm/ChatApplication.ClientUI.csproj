@@ -9,7 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ChatApplication\ChatApplication.ServerUI.csproj" />
+    <ProjectReference Include="..\BusinessLogic\ChatApplication.BusinessLogic.csproj" />
+    <ProjectReference Include="..\ChatApplication.Domain\ChatApplication.Domain.csproj" />
   </ItemGroup>
 
 </Project>
