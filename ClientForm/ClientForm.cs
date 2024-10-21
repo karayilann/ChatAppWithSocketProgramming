@@ -11,16 +11,18 @@ namespace ClientForm
     {
         private ClientService _clientService;
         private MessageService _messageService;
-        private string filePath;
+        private FileTransferService _fileTransfer;
+        private string _fileSavePath;
 
         public ClientForm()
         {
             InitializeComponent();
             btnSendMessage.Enabled = false;
             _clientService = new ClientService();
+            _fileTransfer = new FileTransferService();
         }
 
-        private void ReceiveMessages()
+        private async Task ReceiveMessages()
         {
             _messageService = new MessageService(_clientService.NetworkStream);
 
@@ -47,13 +49,14 @@ namespace ClientForm
                             string[] fileInfo = receivedMessage.Content.Split('|');
                             string fileName = fileInfo[0].Split(':')[1];
                             long fileSize = long.Parse(fileInfo[1].Split(':')[1]);
-                            ReceiveFile(fileName,fileSize);
+
+                            await ReceiveFileAsync(fileName, fileSize);
                             continue;
                         }
 
                         Invoke((MethodInvoker)delegate
                         {
-                            AddToTextBox("Sunucu : " + receivedMessage.ToString());
+                            AddToTextBox("Sunucu : " + receivedMessage);
                         });
                     }
                     catch (IOException)
@@ -73,39 +76,11 @@ namespace ClientForm
             }
         }
 
-        private void ReceiveFile(string fileName, long fileSize)
+        // Alýndýðýna dair bilgi yok
+        private async Task ReceiveFileAsync(string fileName, long fileSize)
         {
-            try
-            {
-                byte[] buffer = new byte[1024];
-                string fullFilePath = Path.Combine(filePath, fileName);
-
-                using (FileStream fs = new FileStream(fullFilePath, FileMode.Create, FileAccess.Write))
-                {
-                    long totalBytesReceived = 0;
-                    while (totalBytesReceived < fileSize)
-                    {
-                        int bytesRead = _clientService.NetworkStream.Read(buffer, 0, buffer.Length);
-                        if (bytesRead > 0)
-                        {
-                            fs.Write(buffer, 0, bytesRead);
-                            totalBytesReceived += bytesRead;
-                        }
-                    }
-
-                    Invoke((MethodInvoker)delegate
-                    {
-                        MessageBox.Show("The file was successfully imported and saved: " + fullFilePath);
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                this.Invoke((MethodInvoker)delegate
-                {
-                    MessageBox.Show("Error (Receiving file): " + ex.Message);
-                });
-            }
+            string fullFilePath = Path.Combine(_fileSavePath, fileName);
+            await _fileTransfer.ReceiveFileAsync(_clientService.NetworkStream, fileName, fullFilePath, fileSize);
         }
 
         private void btnSendMessage_Click(object sender, EventArgs e)
@@ -128,7 +103,7 @@ namespace ClientForm
             if (browserDialog.ShowDialog() == DialogResult.OK)
             {
                 txtFilePath.Text = browserDialog.SelectedPath;
-                filePath = browserDialog.SelectedPath;
+                _fileSavePath = browserDialog.SelectedPath;
             }
 
             if (!String.IsNullOrEmpty(txtFilePath.Text))
@@ -138,7 +113,6 @@ namespace ClientForm
             }
         }
 
-        // Write utils scripts and add this method
         private void AddToTextBox(string message)
         {
             rTxtBoxOldMessages.Text += message + Environment.NewLine;
@@ -163,8 +137,8 @@ namespace ClientForm
                             if (_clientService.Client.Connected)
                             {
                                 btnSendMessage.Enabled = true;
-                                Task.Run(() => ReceiveMessages());
-                                MessageBox.Show("Connected to server."); // Type tool to prevent the program from continuing.
+                                Task.Run(ReceiveMessages);
+                                MessageBox.Show("Connected to server.");
                                 txtIpAndPort.Clear();
                                 btnConnect.Enabled = false;
                             }

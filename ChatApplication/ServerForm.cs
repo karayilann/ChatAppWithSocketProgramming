@@ -15,17 +15,18 @@ namespace ChatApplication
         private ServerService _serverService;
         private List<MessageService> _messageServices;
         private List<NetworkStream> _clientStreams;
-        private FileTransfer _fileTransfer;
+        private FileTransferService _fileTransferService;
         private readonly object _lockObj = new object();
 
         public ServerForm()
         {
             // Add dependency injection
             InitializeComponent();
+            btnSendFile.Enabled = false;
             _serverService = new ServerService();
             _messageServices = new List<MessageService>();
             _clientStreams = new List<NetworkStream>();
-            _fileTransfer = new FileTransfer(_clientStreams);
+            _fileTransferService = new FileTransferService();
         }
 
         private void btnSendMessage_Click(object sender, EventArgs e)
@@ -63,7 +64,7 @@ namespace ChatApplication
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
                 string fileName = openFileDialog.FileName;
-                _fileTransfer.SendFileToAll(fileName);
+                _fileTransferService.SendFileToAllAsync(_clientStreams,fileName);
             }
         }
 
@@ -106,9 +107,15 @@ namespace ChatApplication
                                     {
                                         MessageBox.Show("A client connection has been terminated.");
                                         _clientStreams.Remove(networkStream);
-                                        _messageServices.Remove(messageService);
+                                        _messageServices.Remove(messageService);  // Baðlantý kapandýðýnda donma problemi var
+                                        client.Close();
                                     });
                                     break;
+                                }
+
+                                if (receivedMessage.ToString().StartsWith("File"))
+                                {
+                                    btnSendFile.Enabled = true;
                                 }
 
                                 Invoke((MethodInvoker)delegate
@@ -134,6 +141,8 @@ namespace ChatApplication
             serverThread.IsBackground = true;
             serverThread.Start();
             MessageBox.Show("Server started.");
+            txtIpAndPort.Clear();
+            btnListen.Enabled = false;
         }
 
     }
