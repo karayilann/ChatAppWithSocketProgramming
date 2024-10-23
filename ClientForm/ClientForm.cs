@@ -40,6 +40,7 @@ namespace ClientForm
                             {
                                 MessageBox.Show("Connection terminated");
                                 _clientService.StopClient();
+                                btnConnect.Enabled = true;
                             });
                             break;
                         }

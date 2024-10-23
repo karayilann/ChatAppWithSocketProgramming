@@ -95,8 +95,6 @@ namespace ChatApplication.Domain
                         }
                     }
                 }
-
-                Console.WriteLine("File successfully received and saved at: " + fullFilePath);
             }
             catch (Exception ex)
             {

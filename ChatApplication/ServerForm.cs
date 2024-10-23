@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using BusinessLogic;
+using ChatApplication.BusinessLogic.UserLogin;
 using ChatApplication.Domain;
 using Message = ChatApplication.Domain.Message;
 
@@ -12,9 +14,17 @@ namespace ChatApplication
 {
     public partial class ServerForm : Form
     {
+        // TODO : Mesajlar için seçme özelliði ekle
+        // Boþ messageboxlarý sil veya messageboxlarýn uygulamayý durdurmasýný engelle
+        // Toolslarý taþý
+        // Client baðlanýrken isim iste bunu ClientInfoya ekle
+        // Aþaðýdaki listeleri Client Infoya eklemye çalýþ
+
+
         private ServerService _serverService;
         private List<MessageService> _messageServices;
         private List<NetworkStream> _clientStreams;
+        private List<ClientInfo> _clientInfoList;
         private FileTransferService _fileTransferService;
         private readonly object _lockObj = new object();
 
@@ -27,6 +37,7 @@ namespace ChatApplication
             _messageServices = new List<MessageService>();
             _clientStreams = new List<NetworkStream>();
             _fileTransferService = new FileTransferService();
+            _clientInfoList = new List<ClientInfo>();
         }
 
         private void btnSendMessage_Click(object sender, EventArgs e)
@@ -64,7 +75,7 @@ namespace ChatApplication
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
                 string fileName = openFileDialog.FileName;
-                _fileTransferService.SendFileToAllAsync(_clientStreams,fileName);
+                _fileTransferService.SendFileToAllAsync(_clientStreams, fileName);
             }
         }
 
@@ -90,6 +101,11 @@ namespace ChatApplication
 
                     _clientStreams.Add(networkStream);
 
+                    string clientIpAddress = ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString();
+
+                    ClientInfo _newClientInfo = new ClientInfo(clientIpAddress);
+                    AddToCombobox(_newClientInfo);
+
                     var messageService = new MessageService(networkStream);
                     _messageServices.Add(messageService);
 
@@ -105,13 +121,23 @@ namespace ChatApplication
                                 {
                                     Invoke((MethodInvoker)delegate
                                     {
-                                        MessageBox.Show("A client connection has been terminated.");
                                         _clientStreams.Remove(networkStream);
-                                        _messageServices.Remove(messageService);  // Baðlantý kapandýðýnda donma problemi var
+                                        _messageServices.Remove(messageService);
+
+                                        var clientToRemove = _clientInfoList.FirstOrDefault(c => c.IpAdress == ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString());
+                                        if (clientToRemove != null)
+                                        {
+                                            _clientInfoList.Remove(clientToRemove);
+                                        }
+
                                         client.Close();
+
+                                        cmbClientList.DataSource = null;
+                                        cmbClientList.DataSource = _clientInfoList;
                                     });
                                     break;
                                 }
+
 
                                 if (receivedMessage.ToString().StartsWith("File"))
                                 {
@@ -140,10 +166,20 @@ namespace ChatApplication
 
             serverThread.IsBackground = true;
             serverThread.Start();
-            MessageBox.Show("Server started.");
             txtIpAndPort.Clear();
             btnListen.Enabled = false;
         }
 
+        private void AddToCombobox(ClientInfo newClient)
+        {
+            // Bu kýsýma daha optimize bir yöntem düþünülebilir. Örn nullamak yerine event eklenerek
+            // ToString override edilebilir
+
+            _clientInfoList.Add(newClient);
+
+            cmbClientList.DataSource = null;
+            cmbClientList.DataSource = _clientInfoList;
+            cmbClientList.DisplayMember = newClient.IpAdress;
+        }
     }
 }

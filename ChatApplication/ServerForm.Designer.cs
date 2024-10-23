@@ -35,6 +35,8 @@
             rTextBoxOldMessages = new RichTextBox();
             btnListen = new Button();
             txtIpAndPort = new TextBox();
+            cmbClientList = new ComboBox();
+            listBox1 = new ListBox();
             SuspendLayout();
             // 
             // btnSendFile
@@ -101,11 +103,31 @@
             txtIpAndPort.Size = new Size(155, 23);
             txtIpAndPort.TabIndex = 13;
             // 
+            // cmbClientList
+            // 
+            cmbClientList.FormattingEnabled = true;
+            cmbClientList.Location = new Point(547, 70);
+            cmbClientList.Name = "cmbClientList";
+            cmbClientList.Size = new Size(225, 23);
+            cmbClientList.TabIndex = 15;
+            // 
+            // listBox1
+            // 
+            listBox1.FormattingEnabled = true;
+            listBox1.ItemHeight = 15;
+            listBox1.Items.AddRange(new object[] { "sadadas", "asdasd", "w23e423" });
+            listBox1.Location = new Point(592, 220);
+            listBox1.Name = "listBox1";
+            listBox1.Size = new Size(120, 94);
+            listBox1.TabIndex = 16;
+            // 
             // ServerForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
+            Controls.Add(listBox1);
+            Controls.Add(cmbClientList);
             Controls.Add(btnListen);
             Controls.Add(txtIpAndPort);
             Controls.Add(btnSendFile);
@@ -129,5 +151,7 @@
         private RichTextBox rTextBoxOldMessages;
         private Button btnListen;
         private TextBox txtIpAndPort;
+        private ComboBox cmbClientList;
+        private ListBox listBox1;
     }
 }
